@@ -2,60 +2,57 @@
 //  ContentView.swift
 //  LightWeight
 //
-//  Created by Buda Sebastian on 02/08/2026.
-//
 
 import SwiftUI
 import SwiftData
 
 struct ContentView: View {
     @Environment(\.modelContext) private var modelContext
-    @Query private var items: [Item]
+
+    /// The in-progress session, if any. Presented modally over the whole app.
+    @State private var activeSession: WorkoutSession?
 
     var body: some View {
-        NavigationSplitView {
-            List {
-                ForEach(items) { item in
-                    NavigationLink {
-                        Text("Item at \(item.timestamp, format: Date.FormatStyle(date: .numeric, time: .standard))")
-                    } label: {
-                        Text(item.timestamp, format: Date.FormatStyle(date: .numeric, time: .standard))
-                    }
-                }
-                .onDelete(perform: deleteItems)
-            }
-            .toolbar {
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    EditButton()
-                }
-                ToolbarItem {
-                    Button(action: addItem) {
-                        Label("Add Item", systemImage: "plus")
-                    }
+        TabView {
+            Tab("Workouts", systemImage: "dumbbell") {
+                NavigationStack {
+                    WorkoutListView(activeSession: $activeSession)
                 }
             }
-        } detail: {
-            Text("Select an item")
+            Tab("Exercises", systemImage: "list.bullet") {
+                NavigationStack {
+                    ExerciseLibraryView()
+                }
+            }
+            Tab("History", systemImage: "clock.arrow.circlepath") {
+                NavigationStack {
+                    HistoryListView()
+                }
+            }
+        }
+        .fullScreenCover(item: $activeSession) { session in
+            ActiveSessionView(session: session)
+        }
+        .task {
+            deleteAbandonedSessions()
         }
     }
 
-    private func addItem() {
-        withAnimation {
-            let newItem = Item(timestamp: Date())
-            modelContext.insert(newItem)
-        }
-    }
-
-    private func deleteItems(offsets: IndexSet) {
-        withAnimation {
-            for index in offsets {
-                modelContext.delete(items[index])
-            }
+    /// A session is written to the store as soon as it starts, so killing the app mid-workout
+    /// leaves an unfinished row behind. Finishing is explicit, so anything unfinished at
+    /// launch was abandoned.
+    private func deleteAbandonedSessions() {
+        let descriptor = FetchDescriptor<WorkoutSession>(
+            predicate: #Predicate { $0.finishedAt == nil }
+        )
+        guard let abandoned = try? modelContext.fetch(descriptor) else { return }
+        for session in abandoned {
+            modelContext.delete(session)
         }
     }
 }
 
 #Preview {
     ContentView()
-        .modelContainer(for: Item.self, inMemory: true)
+        .modelContainer(for: Workout.self, inMemory: true)
 }

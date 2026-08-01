@@ -12,7 +12,13 @@ import SwiftData
 struct LightWeightApp: App {
     var sharedModelContainer: ModelContainer = {
         let schema = Schema([
-            Item.self,
+            Exercise.self,
+            Workout.self,
+            WorkoutExercise.self,
+            PlannedSet.self,
+            WorkoutSession.self,
+            SessionExercise.self,
+            SessionSet.self,
         ])
         let modelConfiguration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
 
